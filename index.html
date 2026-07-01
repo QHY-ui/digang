@@ -16,7 +16,6 @@
             --c-error: #C8553D;
         }
         body {
-            /* 背景图现在位于根目录 */
             background: linear-gradient(rgba(249, 246, 240, 0.85), rgba(249, 246, 240, 0.85)), url('map.png');
             background-size: cover;
             background-position: center;
@@ -95,6 +94,14 @@
             display:grid; grid-template-columns:repeat(2,1fr); gap:20px; width:100%; max-width:300px; margin:0 auto;
         }
         .map-item { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100px; }
+        /* 合并页面卡片网格 */
+        .merge-card-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-width: 280px;
+            margin: 0 auto;
+        }
     </style>
 </head>
 <body>
@@ -143,7 +150,26 @@
         </div>
     </section>
 
-    <!-- 页面 3: 游戏主界面 -->
+    <!-- 页面 3: 合并消除页（新增） -->
+    <section class="full-screen hidden flex-col" id="page-merge">
+        <div class="w-full p-3 flex justify-between items-center bg-white/80 shadow-sm z-20">
+            <span class="text-xs font-bold text-white px-2 py-1 rounded" id="merge-mode-tag">⚡ 挑战模式</span>
+            <div class="flex flex-col items-center">
+                <div class="text-lg font-mono font-bold text-[#3A2E2A]" id="merge-timer">00:00.0</div>
+                <div class="text-xs text-red-500 h-4 opacity-0 transition-opacity" id="merge-penalty-msg">+5s</div>
+            </div>
+            <div class="w-8"></div>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center p-4">
+            <div class="text-sm font-bold text-[#7BA4A8] mb-6" id="merge-status">已配对 0/6</div>
+            <div class="merge-card-grid" id="card-grid"></div>
+        </div>
+        <div class="w-full p-4 bg-white/50 text-center text-xs text-[#8B7D72]">
+            点击相同颜色的卡片进行配对
+        </div>
+    </section>
+
+    <!-- 页面 4: 拖拽放置页 -->
     <section class="full-screen hidden flex-col" id="page-game">
         <div class="w-full p-3 flex justify-between items-center bg-white/80 shadow-sm z-20">
             <span class="text-xs font-bold text-white px-2 py-1 rounded" id="game-mode-tag">⚡ 挑战模式</span>
@@ -161,20 +187,15 @@
             <div class="progress-dot" id="dot-4"></div>
             <div class="progress-dot" id="dot-5"></div>
         </div>
-        <div class="flex-1 flex flex-col overflow-hidden relative">
-            <div class="h-1/2 flex flex-col items-center justify-center p-2 border-b border-gray-200 bg-white/30 transition-all duration-500" id="merge-area">
-                <div class="text-sm font-bold text-[#7BA4A8] mb-2" id="merge-status">已配对 0/6</div>
-                <div class="grid grid-cols-4 gap-2" id="card-grid"></div>
-            </div>
-            <div class="h-1/2 flex flex-col items-center justify-center p-2 relative transition-all duration-500" id="place-area">
-                <div class="text-xs text-[#8B7D72] mb-2" id="place-hint-text">将激活的色卡拖拽到地图上</div>
-                <div class="map-grid" id="game-map"></div>
-            </div>
+        <div class="flex-1 flex flex-col items-center justify-center p-4 relative">
+            <div class="text-xs text-[#8B7D72] mb-4" id="place-hint-text">将激活的色卡拖拽到对应的地图图标上</div>
+            <div class="flex flex-wrap justify-center gap-3 mb-8" id="drag-card-area"></div>
+            <div class="map-grid" id="game-map"></div>
         </div>
         <button class="absolute bottom-6 right-6 w-12 h-12 bg-[#5B8C3E] text-white rounded-full shadow-lg flex-center text-xl font-bold hidden z-30 active:scale-90" id="btn-hint" onclick="game.useHint()">?</button>
     </section>
 
-    <!-- 页面 4: 结果 -->
+    <!-- 页面 5: 结果 -->
     <section class="full-screen hidden flex-col" id="page-result">
         <div class="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
             <div class="w-full max-w-sm hidden text-center" id="result-challenge">
@@ -272,18 +293,21 @@
             init(){
                 this.dom = {
                     pages:document.querySelectorAll('section'),
-                    timer:document.getElementById('game-timer'),
-                    penaltyMsg:document.getElementById('penalty-msg'),
-                    cardGrid:document.getElementById('card-grid'),
-                    mergeStatus:document.getElementById('merge-status'),
-                    mergeArea:document.getElementById('merge-area'),
-                    placeArea:document.getElementById('place-area'),
-                    map:document.getElementById('game-map'),
-                    memoryMap:document.getElementById('memory-map'),
-                    memoryTimer:document.getElementById('memory-timer'),
-                    btnSkip:document.getElementById('btn-skip'),
-                    btnStartMerge:document.getElementById('btn-start-merge'),
-                    btnHint:document.getElementById('btn-hint'),
+                    // 合并页元素
+                    mergeTimer: document.getElementById('merge-timer'),
+                    mergePenaltyMsg: document.getElementById('merge-penalty-msg'),
+                    cardGrid: document.getElementById('card-grid'),
+                    mergeStatus: document.getElementById('merge-status'),
+                    // 拖拽页元素
+                    timer: document.getElementById('game-timer'),
+                    penaltyMsg: document.getElementById('penalty-msg'),
+                    dragCardArea: document.getElementById('drag-card-area'),
+                    map: document.getElementById('game-map'),
+                    memoryMap: document.getElementById('memory-map'),
+                    memoryTimer: document.getElementById('memory-timer'),
+                    btnSkip: document.getElementById('btn-skip'),
+                    btnStartMerge: document.getElementById('btn-start-merge'),
+                    btnHint: document.getElementById('btn-hint'),
                     dots:[0,1,2,3,4,5].map(i=>document.getElementById(`dot-${i}`))
                 };
                 const savedName = localStorage.getItem('sg_player_name');
@@ -297,10 +321,10 @@
                 if(mode==='challenge'){
                     this.switchPage('page-memory'); this.startMemoryPhase();
                 } else {
-                    this.switchPage('page-game'); document.body.classList.add('mode-leisure');
-                    document.getElementById('game-mode-tag').textContent='🍃 休闲模式';
-                    document.getElementById('game-mode-tag').className='text-xs font-bold text-white px-2 py-1 rounded bg-[#5B8C3E]';
-                    this.dom.timer.textContent='--:--'; this.dom.btnHint.classList.remove('hidden');
+                    this.switchPage('page-merge');
+                    document.getElementById('merge-mode-tag').textContent = '🍃 休闲模式';
+                    document.getElementById('merge-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#5B8C3E]';
+                    this.dom.mergeTimer.textContent = '--:--';
                     this.enterMergePhase();
                 }
             },
@@ -322,11 +346,16 @@
                 setTimeout(()=>this.enterMergePhase(),600);
             },
             enterMergePhase(){
-                this.state='merge'; this.switchPage('page-game');
+                this.state='merge';
+                this.switchPage('page-merge');
                 if(this.mode==='challenge'){
+                    // 设置挑战模式标签
+                    document.getElementById('merge-mode-tag').textContent = '⚡ 挑战模式';
+                    document.getElementById('merge-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#D4A843]';
                     this.startTime=Date.now();
                     this.timerInterval=setInterval(()=>{
-                        this.dom.timer.textContent=((Date.now()-this.startTime)/1000).toFixed(1)+'s';
+                        const delta = ((Date.now()-this.startTime)/1000).toFixed(1);
+                        this.dom.mergeTimer.textContent = delta + 's';
                     },100);
                 }
                 this.generateCards(); this.renderCards();
@@ -375,11 +404,33 @@
                 els[i1].style.visibility='hidden'; els[i2].style.visibility='hidden';
                 this.selectedCard=null;
                 const cnt=this.mergedCards.length; this.dom.mergeStatus.textContent=`已配对 ${cnt}/6`;
-                if(cnt===6) setTimeout(()=>this.transitionToPlace(),500);
+                if(cnt===6) setTimeout(()=>this.goToPlacePage(),600);
             },
-            transitionToPlace(){
-                this.state='place'; this.dom.mergeStatus.textContent='所有色卡已激活，拖到地图上吧！';
-                this.dom.cardGrid.innerHTML=''; this.dom.cardGrid.className='grid grid-cols-3 gap-3';
+            goToPlacePage(){
+                // 切换到拖拽页面
+                this.state='place';
+                this.switchPage('page-game');
+                // 同步计时器
+                if(this.mode==='challenge'){
+                    document.getElementById('game-mode-tag').textContent = '⚡ 挑战模式';
+                    document.getElementById('game-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#D4A843]';
+                    // 将合并页的计时器值同步到拖拽页
+                    this.dom.timer.textContent = this.dom.mergeTimer.textContent;
+                    // 清除旧的计时器并重启（保持连续）
+                    clearInterval(this.timerInterval);
+                    this.startTime = Date.now() - parseFloat(this.dom.timer.textContent)*1000;
+                    this.timerInterval = setInterval(()=>{
+                        const delta = ((Date.now()-this.startTime)/1000).toFixed(1);
+                        this.dom.timer.textContent = delta + 's';
+                    },100);
+                } else {
+                    document.getElementById('game-mode-tag').textContent = '🍃 休闲模式';
+                    document.getElementById('game-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#5B8C3E]';
+                    this.dom.timer.textContent = '--:--';
+                    this.dom.btnHint.classList.remove('hidden');
+                }
+                // 渲染拖拽卡片
+                this.dom.dragCardArea.innerHTML = '';
                 this.mergedCards.forEach((c,i)=>{
                     const el=document.createElement('div');
                     el.className = 'card merged anim-pop';
@@ -387,10 +438,9 @@
                     el.dataset.colorId = c.id;
                     el.dataset.index = i;
                     this.addDragEvents(el);
-                    this.dom.cardGrid.appendChild(el);
+                    this.dom.dragCardArea.appendChild(el);
                 });
-                this.dom.mergeArea.classList.remove('h-1/2'); this.dom.mergeArea.classList.add('h-1/3');
-                this.dom.placeArea.classList.remove('h-1/2'); this.dom.placeArea.classList.add('h-2/3');
+                // 确保地图已渲染（已在 init 中渲染，但如果需要重新渲染可调用）
             },
             addDragEvents(el){
                 const handleStart=(e)=>{
@@ -445,14 +495,25 @@
                 this.dom.dots[this.placedCount-1].classList.add('active');
                 if(this.placedCount===6) this.gameWin();
             },
-            applyPenalty(){ this.penaltyTime+=5; this.dom.penaltyMsg.style.opacity=1; this.dom.penaltyMsg.textContent='+5s'; setTimeout(()=>this.dom.penaltyMsg.style.opacity=0,1000); },
+            applyPenalty(){
+                this.penaltyTime+=5;
+                // 在两个页面的惩罚提示都显示
+                if(this.dom.penaltyMsg) {
+                    this.dom.penaltyMsg.textContent='+5s'; this.dom.penaltyMsg.style.opacity=1;
+                    setTimeout(()=>this.dom.penaltyMsg.style.opacity=0,1000);
+                }
+                if(this.dom.mergePenaltyMsg) {
+                    this.dom.mergePenaltyMsg.textContent='+5s'; this.dom.mergePenaltyMsg.style.opacity=1;
+                    setTimeout(()=>this.dom.mergePenaltyMsg.style.opacity=0,1000);
+                }
+            },
             useHint(){
                 if(this.hintsLeft<=0) return;
                 const icons=Array.from(document.querySelectorAll('#game-map .map-icon-container')).filter(i=>i.dataset.placed!=='true');
                 if(icons.length===0) return;
                 const target=icons[Math.floor(Math.random()*icons.length)], colorId=target.dataset.colorId;
                 target.classList.add('hint-active'); target.style.boxShadow=`0 0 15px ${CONFIG.colors.find(c=>c.id===colorId).hex}`;
-                const card=Array.from(this.dom.cardGrid.children).find(c=>c.dataset.colorId===colorId && c.style.visibility!=='hidden');
+                const card=Array.from(this.dom.dragCardArea.children).find(c=>c.dataset.colorId===colorId && c.style.visibility!=='hidden');
                 if(card){ card.classList.add('anim-pulse'); card.style.borderColor='#fff'; }
                 setTimeout(()=>{
                     target.classList.remove('hint-active'); target.style.boxShadow='';
@@ -515,7 +576,7 @@
             },
             shareResult(){ showToast("分享功能模拟成功"); },
 
-            // 地图图标（图片路径已改为根目录）
+            // 地图图标（保留颜色边框）
             renderMapIcons(container, showColors){
                 container.innerHTML='';
                 CONFIG.mapLayout.forEach(item=>{
@@ -541,7 +602,6 @@
                         fb.style.display = '';
                         iconBox.appendChild(fb);
                     };
-                    // ★ 图片路径修改为根目录下的文件名
                     img.src = colorConfig.icon + '.png';
                     iconBox.appendChild(img);
                     div.appendChild(iconBox);
@@ -559,5 +619,4 @@
         document.addEventListener('DOMContentLoaded', ()=>game.init());
     </script>
 </body>
-</html>
 </html>
