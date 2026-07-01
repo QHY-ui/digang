@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>社戏寻味 · 荻港色味记忆挑战</title>
+    <script src="https://image.uc.cn/s/uae/g/3n/mos-production/0915/3.4.17.js"></script>
+    <script src="https://image.uc.cn/s/uae/g/3n/mos-production/fontawesome-free-7.1.0-web/js/all.min.js"></script>
+    <link href="https://image.uc.cn/s/uae/g/3n/mos-production/fontawesome-free-7.1.0-web/css/fontawesome.min.css" rel="stylesheet"/>
+    <style>
+        :root {
+            --c-green: #5B8C3E; --c-white: #F5F0E6; --c-silver: #B0BFC2; --c-mud: #E8DCC8;
+            --c-blue: #7BA4A8; --c-purple: #6B3A5B; --c-bg: #F9F6F0; --c-text-dark: #3A2E2A;
+            --c-text-light: #8B7D72; --c-accent-challenge: #D4A843; --c-accent-leisure: #5B8C3E;
+            --c-error: #C8553D;
+        }
+        body {
+            background: linear-gradient(rgba(249, 246, 240, 0.85), rgba(249, 246, 240, 0.85)), url('map.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--c-text-dark);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden; touch-action: none; user-select: none; -webkit-user-select: none; margin:0;
+        }
+        .hidden { display: none !important; }
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+        .full-screen { width: 100vw; height: 100vh; position: absolute; top:0; left:0; overflow-y: auto; }
+        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.1)} 100%{transform:scale(1)} }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+        @keyframes pulse-glow { 0%{box-shadow:0 0 0 0 rgba(91,140,62,0.4)} 70%{box-shadow:0 0 0 10px rgba(91,140,62,0)} 100%{box-shadow:0 0 0 0 rgba(91,140,62,0)} }
+        .anim-spin { animation: spin 10s linear infinite; }
+        .anim-pop { animation: pop 0.3s ease-out; }
+        .anim-shake { animation: shake 0.4s ease-in-out; }
+        .anim-pulse { animation: pulse-glow 2s infinite; }
+        .card {
+            width:56px; height:56px; border-radius:10px; box-shadow:0 3px 6px rgba(0,0,0,0.12);
+            transition:all 0.2s; cursor:pointer; position:relative;
+        }
+        .card.selected {
+            width:60px; height:60px; border:2px dashed var(--c-accent-challenge);
+            transform:scale(1.07); box-shadow:0 4px 10px rgba(0,0,0,0.2); z-index:10;
+        }
+        .card.merged {
+            width:64px; height:64px; border-radius:12px;
+            border: none;
+            box-shadow:0 6px 12px rgba(0,0,0,0.18);
+        }
+        .mode-leisure .card.selected { border-color: var(--c-accent-leisure); }
+        .card.dragging {
+            opacity:0.8; transform:scale(1.15); box-shadow:0 10px 20px rgba(0,0,0,0.3);
+            z-index:100; pointer-events:none;
+        }
+        .map-icon-container {
+            width:60px; height:60px;
+            border-radius: 10px;
+            background:rgba(255,255,255,0.5);
+            display:flex; align-items:center; justify-content:center;
+            position:relative; transition:transform 0.2s;
+        }
+        .map-icon-container img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            border-radius: 6px;
+            pointer-events:none;
+        }
+        .map-icon-container .emoji-fallback {
+            font-size:30px; display:none;
+        }
+        .map-icon-container.correct { box-shadow: 0 0 15px currentColor; }
+        .map-icon-container.hint-active { box-shadow: 0 0 10px var(--c-accent-leisure); }
+        .btn-primary {
+            background:linear-gradient(135deg, var(--c-accent-challenge), #B88A2E); color:white;
+            padding:12px 24px; border-radius:30px; font-weight:bold;
+            box-shadow:0 4px 10px rgba(212,168,67,0.3); transition:transform 0.1s;
+        }
+        .btn-primary:active { transform: scale(0.95); }
+        .progress-dot {
+            width:8px; height:8px; border-radius:50%; background:#ddd; transition:background 0.3s;
+        }
+        .progress-dot.active { background: var(--c-accent-challenge); }
+        .mode-leisure .progress-dot.active { background: var(--c-accent-leisure); }
+        #toast-container {
+            position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2000; pointer-events:none;
+        }
+        .toast {
+            background:rgba(0,0,0,0.8); color:white; padding:10px 20px; border-radius:20px;
+            margin-bottom:10px; opacity:0; transition:opacity 0.3s; text-align:center;
+        }
+        .toast.show { opacity:1; }
+        .map-grid {
+            display:grid; grid-template-columns:repeat(2,1fr); gap:20px; width:100%; max-width:300px; margin:0 auto;
+        }
+        .map-item { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100px; }
+        /* 合并页面卡片网格 */
+        .merge-card-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <!-- 页面 1: 模式选择 -->
+    <section class="full-screen flex-center flex-col" id="page-mode">
+        <div class="mb-8 relative">
+            <div class="w-32 h-32 rounded-full border-4 border-[#3A2E2A] flex-center anim-spin overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-tr from-[#5B8C3E] via-[#F5F0E6] to-[#6B3A5B] opacity-50"></div>
+                <div class="absolute inset-2 rounded-full border border-[#8B7D72] flex-center bg-[#F9F6F0]">
+                    <span class="text-2xl font-bold text-[#3A2E2A]">寻味</span>
+                </div>
+            </div>
+        </div>
+        <h1 class="text-2xl font-bold mb-6 text-[#3A2E2A]">社戏寻味 · 荻港记忆</h1>
+        <div class="w-full max-w-sm px-4 space-y-4">
+            <div class="bg-white p-4 rounded-xl border-2 border-[#D4A843] shadow-lg active:scale-95 transition-transform cursor-pointer" onclick="game.start('challenge')">
+                <div class="flex items-center mb-2"><span class="text-xl mr-2">⚡</span><h2 class="text-lg font-bold text-[#D4A843]">挑战模式</h2></div>
+                <p class="text-sm text-[#8B7D72] mb-1">记忆30秒 → 合并消除 → 拖拽放置</p>
+                <p class="text-xs text-[#3A2E2A] font-semibold">计时排名 → 赢折扣券</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border-2 border-[#5B8C3E] shadow-lg active:scale-95 transition-transform cursor-pointer" onclick="game.start('leisure')">
+                <div class="flex items-center mb-2"><span class="text-xl mr-2">🍃</span><h2 class="text-lg font-bold text-[#5B8C3E]">休闲模式</h2></div>
+                <p class="text-sm text-[#8B7D72] mb-1">跳过记忆 → 直接开始</p>
+                <p class="text-xs text-[#3A2E2A] font-semibold">无计时 · 无排名 · 电子纪念卡</p>
+            </div>
+        </div>
+        <div class="mt-8 text-xs text-[#8B7D72]">游客昵称: <span id="player-name-display">荻港寻味人</span></div>
+    </section>
+
+    <!-- 页面 2: 记忆阶段 -->
+    <section class="full-screen hidden flex-col" id="page-memory">
+        <div class="w-full p-4 flex justify-between items-center bg-white/50 backdrop-blur-sm z-10">
+            <span class="text-sm font-bold bg-[#D4A843] text-white px-2 py-1 rounded">⚡ 挑战模式</span>
+            <div class="text-xl font-mono font-bold text-[#3A2E2A]" id="memory-timer">30</div>
+        </div>
+        <div class="flex-1 flex-center relative w-full overflow-hidden">
+            <div class="map-grid" id="memory-map"></div>
+            <div class="absolute inset-0 flex-center bg-black/50 text-white text-xl font-bold hidden z-20" id="map-overlay-msg">地图已合上</div>
+        </div>
+        <div class="w-full p-6 pb-10 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-10">
+            <button class="w-full mb-3 py-3 border border-[#7BA4A8] text-[#7BA4A8] rounded-lg text-sm font-bold active:bg-gray-100" id="btn-skip" onclick="game.skipMemory()">⏭ 跳过记忆</button>
+            <div class="text-center text-xs text-[#8B7D72]">跳过记忆将直接开始游戏</div>
+            <button class="w-full mt-4 btn-primary hidden" id="btn-start-merge" onclick="game.enterMergePhase()">我已记牢，开始挑战</button>
+        </div>
+    </section>
+
+    <!-- 页面 3: 合并消除页（新增） -->
+    <section class="full-screen hidden flex-col" id="page-merge">
+        <div class="w-full p-3 flex justify-between items-center bg-white/80 shadow-sm z-20">
+            <span class="text-xs font-bold text-white px-2 py-1 rounded" id="merge-mode-tag">⚡ 挑战模式</span>
+            <div class="flex flex-col items-center">
+                <div class="text-lg font-mono font-bold text-[#3A2E2A]" id="merge-timer">00:00.0</div>
+                <div class="text-xs text-red-500 h-4 opacity-0 transition-opacity" id="merge-penalty-msg">+5s</div>
+            </div>
+            <div class="w-8"></div>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center p-4">
+            <div class="text-sm font-bold text-[#7BA4A8] mb-6" id="merge-status">已配对 0/6</div>
+            <div class="merge-card-grid" id="card-grid"></div>
+        </div>
+        <div class="w-full p-4 bg-white/50 text-center text-xs text-[#8B7D72]">
+            点击相同颜色的卡片进行配对
+        </div>
+    </section>
+
+    <!-- 页面 4: 拖拽放置页 -->
+    <section class="full-screen hidden flex-col" id="page-game">
+        <div class="w-full p-3 flex justify-between items-center bg-white/80 shadow-sm z-20">
+            <span class="text-xs font-bold text-white px-2 py-1 rounded" id="game-mode-tag">⚡ 挑战模式</span>
+            <div class="flex flex-col items-center">
+                <div class="text-lg font-mono font-bold text-[#3A2E2A]" id="game-timer">00:00.0</div>
+                <div class="text-xs text-red-500 h-4 opacity-0 transition-opacity" id="penalty-msg">+5s</div>
+            </div>
+            <div class="w-8"></div>
+        </div>
+        <div class="flex justify-center gap-2 py-2 bg-white/60">
+            <div class="progress-dot" id="dot-0"></div>
+            <div class="progress-dot" id="dot-1"></div>
+            <div class="progress-dot" id="dot-2"></div>
+            <div class="progress-dot" id="dot-3"></div>
+            <div class="progress-dot" id="dot-4"></div>
+            <div class="progress-dot" id="dot-5"></div>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center p-4 relative">
+            <div class="text-xs text-[#8B7D72] mb-4" id="place-hint-text">将激活的色卡拖拽到对应的地图图标上</div>
+            <div class="flex flex-wrap justify-center gap-3 mb-8" id="drag-card-area"></div>
+            <div class="map-grid" id="game-map"></div>
+        </div>
+        <button class="absolute bottom-6 right-6 w-12 h-12 bg-[#5B8C3E] text-white rounded-full shadow-lg flex-center text-xl font-bold hidden z-30 active:scale-90" id="btn-hint" onclick="game.useHint()">?</button>
+    </section>
+
+    <!-- 页面 5: 结果 -->
+    <section class="full-screen hidden flex-col" id="page-result">
+        <div class="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
+            <div class="w-full max-w-sm hidden text-center" id="result-challenge">
+                <h2 class="text-2xl font-bold mb-4 text-[#D4A843]">🎉 挑战完成！</h2>
+                <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+                    <div class="text-4xl font-mono font-bold text-[#3A2E2A] mb-2" id="res-total-time">32.4s</div>
+                    <div class="text-xs text-[#8B7D72] space-y-1">
+                        <div>实际用时: <span id="res-actual-time">14.2s</span></div>
+                        <div>错误惩罚: <span id="res-penalty-time">+3.0s</span></div>
+                        <div class="hidden text-[#C8553D]" id="res-skip-row">跳过惩罚: <span id="res-skip-time">+0.0s</span></div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100"><span class="text-sm font-bold">📊 排名 前 <span id="res-rank">12</span>%</span></div>
+                </div>
+                <div class="bg-[#F5F0E6] border-2 border-[#D4A843] rounded-xl p-4 relative mb-6 text-left">
+                    <div class="absolute -top-3 left-4 bg-[#D4A843] text-white text-xs px-2 py-0.5 rounded" id="coupon-type">鱼桑银券</div>
+                    <div class="text-center mt-2 mb-2"><span class="text-3xl font-bold text-[#D4A843]" id="coupon-discount">85折</span></div>
+                    <div class="text-xs text-[#3A2E2A] mb-1">券码: <span class="font-mono select-all" id="coupon-code">QDSW20260702A8F3</span></div>
+                    <div class="text-xs text-[#8B7D72]">有效期: 仅限当日</div>
+                    <div class="text-center text-[10px] text-[#8B7D72] mt-2">── 长按保存图片使用 ──</div>
+                </div>
+                <div class="flex gap-4 justify-center">
+                    <button class="flex-1 py-3 bg-[#3A2E2A] text-white rounded-lg text-sm font-bold active:opacity-80" onclick="game.saveCoupon()">💾 保存优惠券</button>
+                    <button class="flex-1 py-3 border border-[#3A2E2A] text-[#3A2E2A] rounded-lg text-sm font-bold active:bg-gray-100" onclick="game.shareResult()">📤 炫耀一下</button>
+                </div>
+            </div>
+            <div class="w-full max-w-sm hidden text-center" id="result-leisure">
+                <h2 class="text-2xl font-bold mb-4 text-[#5B8C3E]">你看，都找对了</h2>
+                <div class="bg-[#F5F0E6] p-6 rounded-xl shadow-md mb-6 border border-[#5B8C3E]">
+                    <div class="w-16 h-16 bg-[#5B8C3E] rounded-full mx-auto mb-4 flex-center text-white text-2xl"><i class="fa-solid fa-medal"></i></div>
+                    <h3 class="text-lg font-bold text-[#3A2E2A] mb-1">荻港识味人</h3>
+                    <p class="text-xs text-[#8B7D72] mb-4">电子纪念卡</p>
+                    <div class="flex justify-center gap-2 mb-4">
+                        <div class="w-6 h-6 rounded-full bg-[#5B8C3E]"></div>
+                        <div class="w-6 h-6 rounded-full bg-[#F5F0E6] border border-gray-300"></div>
+                        <div class="w-6 h-6 rounded-full bg-[#B0BFC2]"></div>
+                        <div class="w-6 h-6 rounded-full bg-[#E8DCC8]"></div>
+                        <div class="w-6 h-6 rounded-full bg-[#7BA4A8]"></div>
+                        <div class="w-6 h-6 rounded-full bg-[#8B5CF6]"></div>
+                    </div>
+                    <div class="text-xs text-[#3A2E2A]" id="leisure-date">2026-07-02</div>
+                </div>
+                <div class="flex gap-4 justify-center">
+                    <button class="flex-1 py-3 bg-[#5B8C3E] text-white rounded-lg text-sm font-bold active:opacity-80" onclick="game.saveCoupon()">💾 保存纪念卡</button>
+                    <button class="flex-1 py-3 border border-[#5B8C3E] text-[#5B8C3E] rounded-lg text-sm font-bold active:bg-gray-100" onclick="game.shareResult()">📤 炫耀一下</button>
+                </div>
+            </div>
+            <button class="mt-8 text-sm text-[#8B7D72] underline" onclick="location.reload()">再玩一次</button>
+        </div>
+    </section>
+    <canvas class="hidden" height="800" id="poster-canvas" width="600"></canvas>
+
+    <script>
+        // ========== 游戏配置 ==========
+        const CONFIG = {
+            colors: [
+                { id: 'green',  hex: '#5B8C3E', name: '桑绿',   icon: 'leaf',     emoji: '🍃' },
+                { id: 'white',  hex: '#F5F0E6', name: '茧白',   icon: 'cocoon',   emoji: '🕸️' },
+                { id: 'silver', hex: '#B0BFC2', name: '鱼鳞银', icon: 'fish',     emoji: '🐟' },
+                { id: 'mud',    hex: '#E8DCC8', name: '泥藏玉', icon: 'root',     emoji: '🥕' },
+                { id: 'blue',   hex: '#7BA4A8', name: '塘青',   icon: 'chestnut', emoji: '🌰' },
+                { id: 'purple', hex: '#8B5CF6', name: '桑葚紫', icon: 'fruit',    emoji: '🍇' }
+            ],
+            mapLayout: [
+                { id:0, colorId:'green',  x:0, y:0 }, { id:1, colorId:'white',  x:1, y:0 },
+                { id:2, colorId:'silver', x:0, y:1 }, { id:3, colorId:'mud',    x:1, y:1 },
+                { id:4, colorId:'blue',   x:0, y:2 }, { id:5, colorId:'purple', x:1, y:2 }
+            ]
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const Sound = {
+            playTone: (freq, type, duration, vol=0.1) => {
+                if(audioCtx.state==='suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.type=type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+duration);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime+duration);
+            },
+            select: ()=>Sound.playTone(600,'sine',0.1),
+            match: ()=>{ Sound.playTone(800,'sine',0.1); setTimeout(()=>Sound.playTone(1200,'sine',0.3),100); },
+            error: ()=>Sound.playTone(150,'sawtooth',0.3),
+            dragStart: ()=>Sound.playTone(300,'triangle',0.1),
+            placeCorrect: ()=>{ Sound.playTone(1000,'sine',0.1); setTimeout(()=>Sound.playTone(1500,'sine',0.2),50); },
+            placeWrong: ()=>Sound.playTone(100,'sawtooth',0.4),
+            win: ()=>{ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>Sound.playTone(f,'square',0.3),i*150)); },
+            skip: ()=>Sound.playTone(400,'triangle',0.2)
+        };
+
+        const game = {
+            mode:null, state:'mode', timerInterval:null, startTime:0, penaltyTime:0, skipPenalty:0,
+            cards:[], selectedCard:null, mergedCards:[], placedCount:0, hintsLeft:3,
+            dom:{},
+            init(){
+                this.dom = {
+                    pages:document.querySelectorAll('section'),
+                    // 合并页元素
+                    mergeTimer: document.getElementById('merge-timer'),
+                    mergePenaltyMsg: document.getElementById('merge-penalty-msg'),
+                    cardGrid: document.getElementById('card-grid'),
+                    mergeStatus: document.getElementById('merge-status'),
+                    // 拖拽页元素
+                    timer: document.getElementById('game-timer'),
+                    penaltyMsg: document.getElementById('penalty-msg'),
+                    dragCardArea: document.getElementById('drag-card-area'),
+                    map: document.getElementById('game-map'),
+                    memoryMap: document.getElementById('memory-map'),
+                    memoryTimer: document.getElementById('memory-timer'),
+                    btnSkip: document.getElementById('btn-skip'),
+                    btnStartMerge: document.getElementById('btn-start-merge'),
+                    btnHint: document.getElementById('btn-hint'),
+                    dots:[0,1,2,3,4,5].map(i=>document.getElementById(`dot-${i}`))
+                };
+                const savedName = localStorage.getItem('sg_player_name');
+                if(savedName) document.getElementById('player-name-display').textContent = savedName;
+                this.renderMapIcons(this.dom.memoryMap, true);
+                this.renderMapIcons(this.dom.map, false);
+            },
+            switchPage(id){ this.dom.pages.forEach(p=>p.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); },
+            start(mode){
+                this.mode=mode; Sound.select();
+                if(mode==='challenge'){
+                    this.switchPage('page-memory'); this.startMemoryPhase();
+                } else {
+                    this.switchPage('page-merge');
+                    document.getElementById('merge-mode-tag').textContent = '🍃 休闲模式';
+                    document.getElementById('merge-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#5B8C3E]';
+                    this.dom.mergeTimer.textContent = '--:--';
+                    this.enterMergePhase();
+                }
+            },
+            startMemoryPhase(){
+                let t = 30;
+                this.dom.memoryTimer.textContent = t;
+                const iv = setInterval(()=>{
+                    t--;
+                    this.dom.memoryTimer.textContent = t;
+                    if(t<=0){ clearInterval(iv); this.dom.btnSkip.classList.add('hidden'); this.dom.btnStartMerge.classList.remove('hidden'); }
+                },1000);
+            },
+            skipMemory(){
+                Sound.skip();
+                this.skipPenalty = 0;
+                const overlay=document.getElementById('map-overlay-msg'); overlay.classList.remove('hidden');
+                setTimeout(()=>overlay.classList.add('hidden'),500);
+                this.dom.memoryMap.innerHTML=''; this.renderMapIcons(this.dom.memoryMap,false);
+                setTimeout(()=>this.enterMergePhase(),600);
+            },
+            enterMergePhase(){
+                this.state='merge';
+                this.switchPage('page-merge');
+                if(this.mode==='challenge'){
+                    // 设置挑战模式标签
+                    document.getElementById('merge-mode-tag').textContent = '⚡ 挑战模式';
+                    document.getElementById('merge-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#D4A843]';
+                    this.startTime=Date.now();
+                    this.timerInterval=setInterval(()=>{
+                        const delta = ((Date.now()-this.startTime)/1000).toFixed(1);
+                        this.dom.mergeTimer.textContent = delta + 's';
+                    },100);
+                }
+                this.generateCards(); this.renderCards();
+            },
+            generateCards(){
+                let deck=[];
+                CONFIG.colors.forEach(c=>{ deck.push({...c,uid:c.id+'_1'}, {...c,uid:c.id+'_2'}); });
+                do{ deck.sort(()=>Math.random()-0.5); }while(this.hasAdjacentSame(deck));
+                this.cards=deck;
+            },
+            hasAdjacentSame(d){ for(let i=0;i<d.length-1;i++) if(d[i].id===d[i+1].id) return true; return false; },
+            renderCards(){
+                this.dom.cardGrid.innerHTML='';
+                this.cards.forEach((c,i)=>{
+                    const el=document.createElement('div');
+                    el.className = 'card';
+                    el.style.backgroundColor = c.hex;
+                    el.dataset.index = i;
+                    el.dataset.uid = c.uid;
+                    el.onclick = () => this.handleCardClick(i);
+                    this.dom.cardGrid.appendChild(el);
+                });
+            },
+            handleCardClick(idx){
+                const card=this.cards[idx]; if(card.merged) return;
+                if(this.selectedCard && this.selectedCard.uid===card.uid){ this.selectedCard=null; this.updateCardStyles(); return; }
+                Sound.select();
+                if(!this.selectedCard){ this.selectedCard=card; this.updateCardStyles(); }
+                else {
+                    if(this.selectedCard.id===card.id){ Sound.match(); this.mergeCards(this.selectedCard,card); }
+                    else {
+                        Sound.error(); this.selectedCard=card; this.updateCardStyles();
+                        const el=this.dom.cardGrid.children[idx]; el.classList.add('anim-shake');
+                        setTimeout(()=>el.classList.remove('anim-shake'),400);
+                    }
+                }
+            },
+            updateCardStyles(){
+                const els=this.dom.cardGrid.children;
+                this.cards.forEach((c,i)=>{ els[i].classList.remove('selected'); if(this.selectedCard&&this.selectedCard.uid===c.uid) els[i].classList.add('selected'); });
+            },
+            mergeCards(c1,c2){
+                c1.merged=c2.merged=true; this.mergedCards.push(c1);
+                const els=this.dom.cardGrid.children;
+                const i1=this.cards.findIndex(c=>c.uid===c1.uid), i2=this.cards.findIndex(c=>c.uid===c2.uid);
+                els[i1].style.visibility='hidden'; els[i2].style.visibility='hidden';
+                this.selectedCard=null;
+                const cnt=this.mergedCards.length; this.dom.mergeStatus.textContent=`已配对 ${cnt}/6`;
+                if(cnt===6) setTimeout(()=>this.goToPlacePage(),600);
+            },
+            goToPlacePage(){
+                // 切换到拖拽页面
+                this.state='place';
+                this.switchPage('page-game');
+                // 同步计时器
+                if(this.mode==='challenge'){
+                    document.getElementById('game-mode-tag').textContent = '⚡ 挑战模式';
+                    document.getElementById('game-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#D4A843]';
+                    // 将合并页的计时器值同步到拖拽页
+                    this.dom.timer.textContent = this.dom.mergeTimer.textContent;
+                    // 清除旧的计时器并重启（保持连续）
+                    clearInterval(this.timerInterval);
+                    this.startTime = Date.now() - parseFloat(this.dom.timer.textContent)*1000;
+                    this.timerInterval = setInterval(()=>{
+                        const delta = ((Date.now()-this.startTime)/1000).toFixed(1);
+                        this.dom.timer.textContent = delta + 's';
+                    },100);
+                } else {
+                    document.getElementById('game-mode-tag').textContent = '🍃 休闲模式';
+                    document.getElementById('game-mode-tag').className = 'text-xs font-bold text-white px-2 py-1 rounded bg-[#5B8C3E]';
+                    this.dom.timer.textContent = '--:--';
+                    this.dom.btnHint.classList.remove('hidden');
+                }
+                // 渲染拖拽卡片
+                this.dom.dragCardArea.innerHTML = '';
+                this.mergedCards.forEach((c,i)=>{
+                    const el=document.createElement('div');
+                    el.className = 'card merged anim-pop';
+                    el.style.backgroundColor = c.hex;
+                    el.dataset.colorId = c.id;
+                    el.dataset.index = i;
+                    this.addDragEvents(el);
+                    this.dom.dragCardArea.appendChild(el);
+                });
+                // 确保地图已渲染（已在 init 中渲染，但如果需要重新渲染可调用）
+            },
+            addDragEvents(el){
+                const handleStart=(e)=>{
+                    if(this.state!=='place') return; e.preventDefault(); Sound.dragStart();
+                    const touch=e.touches?e.touches[0]:e, rect=el.getBoundingClientRect();
+                    el.dataset.offsetX=touch.clientX-rect.left; el.dataset.offsetY=touch.clientY-rect.top;
+                    el.classList.add('dragging');
+                    const clone=el.cloneNode(true); clone.classList.add('dragging');
+                    clone.style.position='fixed'; clone.style.left=rect.left+'px'; clone.style.top=rect.top+'px';
+                    clone.style.width=rect.width+'px'; clone.style.height=rect.height+'px'; clone.id='drag-clone';
+                    document.body.appendChild(clone); el.style.opacity='0';
+                    const moveHandler=(me)=>{
+                        me.preventDefault(); const mt=me.touches?me.touches[0]:me;
+                        clone.style.left=(mt.clientX-parseFloat(clone.dataset.offsetX))+'px';
+                        clone.style.top=(mt.clientY-parseFloat(clone.dataset.offsetY))+'px';
+                    };
+                    const endHandler=(ee)=>{
+                        ee.preventDefault();
+                        ['mousemove','mouseup','touchmove','touchend'].forEach(ev=>document.removeEventListener(ev, ev.includes('touch')? moveHandler : endHandler));
+                        const cr=clone.getBoundingClientRect(), cx=cr.left+cr.width/2, cy=cr.top+cr.height/2;
+                        let target=null, min=1000;
+                        document.querySelectorAll('#game-map .map-icon-container').forEach(icon=>{
+                            if(icon.dataset.placed==='true') return;
+                            const r=icon.getBoundingClientRect(), ix=r.left+r.width/2, iy=r.top+r.height/2;
+                            const dist=Math.hypot(cx-ix,cy-iy);
+                            if(dist<60 && dist<min){ min=dist; target=icon; }
+                        });
+                        clone.remove(); el.style.opacity='1';
+                        if(target) this.handleDrop(el,target); else el.classList.remove('dragging');
+                    };
+                    document.addEventListener('mousemove',moveHandler); document.addEventListener('mouseup',endHandler);
+                    document.addEventListener('touchmove',moveHandler,{passive:false}); document.addEventListener('touchend',endHandler);
+                };
+                el.addEventListener('mousedown',handleStart); el.addEventListener('touchstart',handleStart,{passive:false});
+            },
+            handleDrop(cardEl,iconEl){
+                if(cardEl.dataset.colorId===iconEl.dataset.colorId){
+                    Sound.placeCorrect(); this.placeCard(cardEl,iconEl);
+                } else {
+                    Sound.placeWrong(); cardEl.classList.remove('dragging'); cardEl.classList.add('anim-shake');
+                    setTimeout(()=>cardEl.classList.remove('anim-shake'),400);
+                    iconEl.classList.add('anim-shake'); iconEl.style.color='var(--c-error)';
+                    setTimeout(()=>{ iconEl.classList.remove('anim-shake'); iconEl.style.color=''; },400);
+                    if(this.mode==='challenge') this.applyPenalty();
+                }
+            },
+            placeCard(cardEl,iconEl){
+                const colorId=iconEl.dataset.colorId;
+                iconEl.style.backgroundColor=CONFIG.colors.find(c=>c.id===colorId).hex;
+                iconEl.style.color='white'; iconEl.classList.add('correct'); iconEl.dataset.placed='true';
+                cardEl.style.visibility='hidden'; this.placedCount++;
+                this.dom.dots[this.placedCount-1].classList.add('active');
+                if(this.placedCount===6) this.gameWin();
+            },
+            applyPenalty(){
+                this.penaltyTime+=5;
+                // 在两个页面的惩罚提示都显示
+                if(this.dom.penaltyMsg) {
+                    this.dom.penaltyMsg.textContent='+5s'; this.dom.penaltyMsg.style.opacity=1;
+                    setTimeout(()=>this.dom.penaltyMsg.style.opacity=0,1000);
+                }
+                if(this.dom.mergePenaltyMsg) {
+                    this.dom.mergePenaltyMsg.textContent='+5s'; this.dom.mergePenaltyMsg.style.opacity=1;
+                    setTimeout(()=>this.dom.mergePenaltyMsg.style.opacity=0,1000);
+                }
+            },
+            useHint(){
+                if(this.hintsLeft<=0) return;
+                const icons=Array.from(document.querySelectorAll('#game-map .map-icon-container')).filter(i=>i.dataset.placed!=='true');
+                if(icons.length===0) return;
+                const target=icons[Math.floor(Math.random()*icons.length)], colorId=target.dataset.colorId;
+                target.classList.add('hint-active'); target.style.boxShadow=`0 0 15px ${CONFIG.colors.find(c=>c.id===colorId).hex}`;
+                const card=Array.from(this.dom.dragCardArea.children).find(c=>c.dataset.colorId===colorId && c.style.visibility!=='hidden');
+                if(card){ card.classList.add('anim-pulse'); card.style.borderColor='#fff'; }
+                setTimeout(()=>{
+                    target.classList.remove('hint-active'); target.style.boxShadow='';
+                    if(card){ card.classList.remove('anim-pulse'); card.style.borderColor=''; }
+                },1500);
+                this.hintsLeft--; if(this.hintsLeft===0) this.dom.btnHint.classList.add('hidden');
+            },
+            gameWin(){ Sound.win(); clearInterval(this.timerInterval); setTimeout(()=>this.showResult(),1000); },
+            showResult(){
+                this.switchPage('page-result');
+                if(this.mode==='challenge'){
+                    const total=parseFloat(this.dom.timer.textContent)+this.penaltyTime+this.skipPenalty;
+                    const actual=parseFloat(this.dom.timer.textContent);
+                    document.getElementById('res-total-time').textContent=total.toFixed(1)+'s';
+                    document.getElementById('res-actual-time').textContent=actual.toFixed(1)+'s';
+                    document.getElementById('res-penalty-time').textContent='+'+this.penaltyTime.toFixed(1)+'s';
+                    if(this.skipPenalty>0){
+                        document.getElementById('res-skip-row').classList.remove('hidden');
+                        document.getElementById('res-skip-time').textContent='+'+this.skipPenalty.toFixed(1)+'s';
+                    } else {
+                        document.getElementById('res-skip-row').classList.add('hidden');
+                    }
+                    const p=Math.max(1,Math.ceil(total*2/50)); document.getElementById('res-rank').textContent=p;
+                    let type='鱼桑参与券', disc='95折', col='#8B7D72';
+                    if(p<=10){ type='鱼桑金券'; disc='8折'; col='#D4A843'; }
+                    else if(p<=30){ type='鱼桑银券'; disc='85折'; col='#B0BFC2'; }
+                    else if(p<=60){ type='鱼桑铜券'; disc='9折'; col='#C8553D'; }
+                    document.getElementById('coupon-type').textContent=type; document.getElementById('coupon-type').style.backgroundColor=col;
+                    document.getElementById('coupon-discount').textContent=disc; document.getElementById('coupon-discount').style.color=col;
+                    document.getElementById('coupon-code').textContent='QDSW'+new Date().toISOString().slice(0,10).replace(/-/g,'')+Math.random().toString(36).substring(2,6).toUpperCase();
+                    this.saveRecord(total,type);
+                    document.getElementById('result-challenge').classList.remove('hidden');
+                } else {
+                    document.getElementById('leisure-date').textContent=new Date().toLocaleDateString();
+                    document.getElementById('result-leisure').classList.remove('hidden');
+                }
+            },
+            saveRecord(time,type){
+                const best=localStorage.getItem('sg_best_time');
+                if(!best || time<parseFloat(best)){ localStorage.setItem('sg_best_time',time); localStorage.setItem('sg_best_type',type); showToast("🎉 新纪录！"); }
+            },
+            saveCoupon(){
+                const canvas=document.getElementById('poster-canvas'), ctx=canvas.getContext('2d');
+                ctx.fillStyle=this.mode==='challenge'?'#F5F0E6':'#5B8C3E'; ctx.fillRect(0,0,600,800);
+                ctx.fillStyle='#3A2E2A'; ctx.font='bold 40px sans-serif'; ctx.textAlign='center'; ctx.fillText("社戏寻味",300,100);
+                if(this.mode==='challenge'){
+                    ctx.font='30px sans-serif'; ctx.fillText(`总用时: ${document.getElementById('res-total-time').textContent}`,300,200);
+                    ctx.fillText(`排名: 前${document.getElementById('res-rank').textContent}%`,300,250);
+                    ctx.strokeStyle='#D4A843'; ctx.lineWidth=4; ctx.strokeRect(50,300,500,300);
+                    ctx.font='bold 60px sans-serif'; ctx.fillStyle='#D4A843'; ctx.fillText(document.getElementById('coupon-discount').textContent,300,400);
+                    ctx.fillStyle='#3A2E2A'; ctx.font='24px monospace'; ctx.fillText(document.getElementById('coupon-code').textContent,300,500);
+                    ctx.font='20px sans-serif'; ctx.fillStyle='#8B7D72'; ctx.fillText("长按保存图片出示使用",300,750);
+                } else {
+                    ctx.fillStyle='#fff'; ctx.font='bold 36px sans-serif'; ctx.fillText("荻港识味人",300,200);
+                    CONFIG.colors.forEach((c,i)=>{ ctx.fillStyle=c.hex; ctx.beginPath(); ctx.arc(150+(i%3)*150,350+Math.floor(i/3)*100,40,0,Math.PI*2); ctx.fill(); });
+                    ctx.fillStyle='#fff'; ctx.font='24px sans-serif'; ctx.fillText("我在荻港认全了6种颜色6道菜",300,600);
+                }
+                const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download='社戏寻味_纪念卡.png'; a.click();
+                showToast("图片已保存");
+            },
+            shareResult(){ showToast("分享功能模拟成功"); },
+
+            // 地图图标（保留颜色边框）
+            renderMapIcons(container, showColors){
+                container.innerHTML='';
+                CONFIG.mapLayout.forEach(item=>{
+                    const colorConfig = CONFIG.colors.find(c=>c.id===item.colorId);
+                    const div = document.createElement('div'); div.className='map-item';
+                    const iconBox = document.createElement('div'); iconBox.className='map-icon-container';
+                    iconBox.dataset.colorId = item.colorId; iconBox.dataset.placed = 'false';
+                    iconBox.style.border = '3px solid ' + colorConfig.hex;
+                    if (showColors) {
+                        iconBox.style.backgroundColor = colorConfig.hex;
+                        iconBox.style.color = 'white';
+                        iconBox.style.boxShadow = `0 0 10px ${colorConfig.hex}`;
+                    }
+                    const img = document.createElement('img');
+                    img.alt = colorConfig.name;
+                    if (showColors) img.style.border = '2px solid white';
+                    img.onload = () => { img.style.display = ''; };
+                    img.onerror = () => {
+                        img.remove();
+                        const fb = document.createElement('span');
+                        fb.className = 'emoji-fallback';
+                        fb.textContent = colorConfig.emoji;
+                        fb.style.display = '';
+                        iconBox.appendChild(fb);
+                    };
+                    img.src = colorConfig.icon + '.png';
+                    iconBox.appendChild(img);
+                    div.appendChild(iconBox);
+                    container.appendChild(div);
+                });
+            }
+        };
+
+        function showToast(msg){
+            const c=document.getElementById('toast-container'), el=document.createElement('div');
+            el.className='toast show'; el.textContent=msg; c.appendChild(el);
+            setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); },2000);
+        }
+
+        document.addEventListener('DOMContentLoaded', ()=>game.init());
+    </script>
+</body>
+</html>
