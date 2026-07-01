@@ -16,7 +16,8 @@
             --c-error: #C8553D;
         }
         body {
-            background: linear-gradient(rgba(249, 246, 240, 0.85), rgba(249, 246, 240, 0.85)), url('images/map.png');
+            /* 背景图现在位于根目录 */
+            background: linear-gradient(rgba(249, 246, 240, 0.85), rgba(249, 246, 240, 0.85)), url('map.png');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -304,7 +305,7 @@
                 }
             },
             startMemoryPhase(){
-                let t = 30;   // ★ 30秒记忆时间
+                let t = 30;
                 this.dom.memoryTimer.textContent = t;
                 const iv = setInterval(()=>{
                     t--;
@@ -314,7 +315,7 @@
             },
             skipMemory(){
                 Sound.skip();
-                this.skipPenalty = 0;   // ★ 跳过不再加罚时
+                this.skipPenalty = 0;
                 const overlay=document.getElementById('map-overlay-msg'); overlay.classList.remove('hidden');
                 setTimeout(()=>overlay.classList.add('hidden'),500);
                 this.dom.memoryMap.innerHTML=''; this.renderMapIcons(this.dom.memoryMap,false);
@@ -514,6 +515,7 @@
             },
             shareResult(){ showToast("分享功能模拟成功"); },
 
+            // 地图图标（图片路径已改为根目录）
             renderMapIcons(container, showColors){
                 container.innerHTML='';
                 CONFIG.mapLayout.forEach(item=>{
@@ -539,7 +541,8 @@
                         fb.style.display = '';
                         iconBox.appendChild(fb);
                     };
-                    img.src = 'images/' + colorConfig.icon + '.png';
+                    // ★ 图片路径修改为根目录下的文件名
+                    img.src = colorConfig.icon + '.png';
                     iconBox.appendChild(img);
                     div.appendChild(iconBox);
                     container.appendChild(div);
@@ -556,4 +559,5 @@
         document.addEventListener('DOMContentLoaded', ()=>game.init());
     </script>
 </body>
+</html>
 </html>
